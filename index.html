@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI Resource Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -14,12 +14,12 @@
 
         // TODO: Replace with your Firebase config
         const firebaseConfig = {
-            apiKey: "AIzaSyAw4pZk2up_7IG4e9ZfJJC_gMG4YGfEDQc",
-			authDomain: "resource-tracking-test-app.firebaseapp.com",
-			projectId: "resource-tracking-test-app",
-			storageBucket: "resource-tracking-test-app.firebasestorage.app",
-			messagingSenderId: "906802546479",
-			appId: "1:906802546479:web:f52c69e60e515ffe5803da"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -144,153 +144,142 @@
                         stream.getTracks().forEach(track => track.stop());
                     }
                 };
-            }, []);
+            }, [stream]);
 
             const startCamera = async () => {
-			    try {
-			        // Stop any existing stream first
-			        if (stream) {
-			            stream.getTracks().forEach(track => track.stop());
-			        }
-			        
-			        // Different constraints for mobile vs desktop
-			        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-			        
-			        const constraints = {
-			            video: {
-			                facingMode: { ideal: 'environment' },
-			                width: { ideal: isMobile ? 1280 : 1920 },
-			                height: { ideal: isMobile ? 720 : 1080 }
-			            },
-			            audio: false
-			        };
-			
-			        console.log('Requesting camera with constraints:', constraints);
-			        
-			        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-			        
-			        console.log('Camera access granted');
-			        console.log('Stream tracks:', mediaStream.getVideoTracks().length);
-			        
-			        setStream(mediaStream);
-			        
-			        if (videoRef.current) {
-			            videoRef.current.srcObject = mediaStream;
-			            
-			            // Important for mobile: wait for metadata AND ensure playing
-			            videoRef.current.onloadedmetadata = async () => {
-			                console.log('Metadata loaded');
-			                try {
-			                    await videoRef.current.play();
-			                    console.log('Video playing');
-			                    setCameraActive(true);
-			                } catch (playError) {
-			                    console.error('Play failed:', playError);
-			                    // Try playing again after a short delay
-			                    setTimeout(async () => {
-			                        try {
-			                            await videoRef.current.play();
-			                            setCameraActive(true);
-			                        } catch (e) {
-			                            alert('Failed to start video preview: ' + e.message);
-			                        }
-			                    }, 500);
-			                }
-			            };
-			            
-			            videoRef.current.onerror = (e) => {
-			                console.error('Video error:', e);
-			                alert('Video element error');
-			            };
-        }
-        
-    } catch (error) {
-        console.error('Camera error:', error);
-        alert('Unable to access camera: ' + error.message + '\n\nPlease make sure:\n1. Camera permissions are granted\n2. No other app is using the camera\n3. Try refreshing the page');
-    }
-};
+                try {
+                    // Stop any existing stream first
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+
+                    console.log('Requesting camera access...');
+                    
+                    const constraints = {
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: false
+                    };
+
+                    const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    console.log('Camera access granted');
+                    setStream(mediaStream);
+                    
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = mediaStream;
+                        
+                        videoRef.current.onloadedmetadata = () => {
+                            console.log('Video metadata loaded');
+                            console.log('Video dimensions:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+                            
+                            videoRef.current.play()
+                                .then(() => {
+                                    console.log('Video playing');
+                                    setCameraActive(true);
+                                })
+                                .catch(err => {
+                                    console.error('Play error:', err);
+                                    // Retry after a short delay
+                                    setTimeout(() => {
+                                        videoRef.current.play()
+                                            .then(() => {
+                                                console.log('Video playing on retry');
+                                                setCameraActive(true);
+                                            })
+                                            .catch(e => {
+                                                alert('Failed to start video: ' + e.message);
+                                            });
+                                    }, 500);
+                                });
+                        };
+                        
+                        videoRef.current.onerror = (e) => {
+                            console.error('Video error:', e);
+                            alert('Video element error');
+                        };
+                    }
+                    
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    alert('Unable to access camera: ' + error.message);
+                }
+            };
 
             const stopCamera = () => {
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = null;
+                    }
                     setStream(null);
                 }
                 setCameraActive(false);
             };
 
             const capturePhoto = () => {
-			    const video = videoRef.current;
-			    
-			    if (!video || !stream) {
-			        alert('Camera not available');
-			        return;
-			    }
-			
-			    // Check if video is actually playing
-			    if (video.paused || video.ended) {
-			        alert('Video is not playing. Please wait for the preview to load.');
-			        return;
-			    }
-			
-			    console.log('Attempting capture...');
-			    console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-			    console.log('Video ready state:', video.readyState);
-			    
-			    // Wait a moment if video dimensions aren't ready
-			    if (!video.videoWidth || !video.videoHeight) {
-			        console.log('Video dimensions not ready, waiting...');
-			        setTimeout(() => {
-			            capturePhoto();
-			        }, 500);
-			        return;
-			    }
-			    
-			    const canvas = document.createElement('canvas');
-			    canvas.width = video.videoWidth;
-			    canvas.height = video.videoHeight;
-			    
-			    console.log('Canvas size:', canvas.width, 'x', canvas.height);
-			    
-			    const ctx = canvas.getContext('2d');
-			    
-			    try {
-			        // Draw the current video frame to canvas
-			        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-			        
-			        // Convert canvas to data URL
-			        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-			        console.log('DataURL created, length:', dataUrl.length);
-			        
-			        // For mobile, we'll use the dataURL directly instead of blob
-			        // This is more reliable on some mobile browsers
-			        if (dataUrl && dataUrl.length > 1000) {
-			            // Convert dataURL to blob
-			            fetch(dataUrl)
-			                .then(res => res.blob())
-			                .then(blob => {
-			                    console.log('Blob created, size:', blob.size);
-			                    setImage(blob);
-			                    setImagePreview(dataUrl);
-			                    stopCamera();
-			                    analyzeImage(blob);
-			                })
-			                .catch(err => {
-			                    console.error('Blob conversion error:', err);
-			                    // Fallback: still set preview even if blob fails
-			                    setImagePreview(dataUrl);
-			                    stopCamera();
-			                    alert('Photo captured but may have issues saving. You can still fill out the form.');
-			                });
-        } else {
-            console.error('DataURL creation failed or too small');
-            alert('Failed to capture photo. Please try again.');
-        }
-        
-    } catch (error) {
-        console.error('Capture error:', error);
-        alert('Error capturing photo: ' + error.message);
-    }
-};
+                const video = videoRef.current;
+                
+                if (!video || !stream) {
+                    alert('Camera not available');
+                    return;
+                }
+
+                console.log('Attempting capture...');
+                console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                
+                if (!video.videoWidth || !video.videoHeight) {
+                    console.log('Video dimensions not ready, waiting...');
+                    setTimeout(() => {
+                        capturePhoto();
+                    }, 500);
+                    return;
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                console.log('Canvas size:', canvas.width, 'x', canvas.height);
+                
+                const ctx = canvas.getContext('2d');
+                
+                try {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                    console.log('DataURL created, length:', dataUrl.length);
+                    
+                    if (dataUrl && dataUrl.length > 1000) {
+                        // Convert dataURL to blob
+                        fetch(dataUrl)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                console.log('Blob created, size:', blob.size);
+                                setImage(blob);
+                                setImagePreview(dataUrl);
+                                stopCamera();
+                                analyzeImage(blob);
+                            })
+                            .catch(err => {
+                                console.error('Blob conversion error:', err);
+                                setImagePreview(dataUrl);
+                                stopCamera();
+                                alert('Photo captured but may have issues saving. You can still fill out the form.');
+                            });
+                    } else {
+                        console.error('DataURL creation failed');
+                        alert('Failed to capture photo. Please try again.');
+                    }
+                    
+                } catch (error) {
+                    console.error('Capture error:', error);
+                    alert('Error capturing photo: ' + error.message);
+                }
+            };
 
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
@@ -316,7 +305,6 @@
                     reader.onloadend = async () => {
                         const base64Image = reader.result;
                         
-                        // Call YOUR Netlify function (not OpenAI directly)
                         const response = await fetch('/.netlify/functions/analyze-image', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -370,13 +358,11 @@
                 setSaving(true);
 
                 try {
-                    // Upload image to Firebase Storage
                     const timestamp = Date.now();
                     const imageRef = window.firebaseStorageRef(window.firebaseStorage, `resources/${timestamp}.jpg`);
                     await window.firebaseUploadBytes(imageRef, image);
                     const imageUrl = await window.firebaseGetDownloadURL(imageRef);
 
-                    // Save data to Firestore
                     const docRef = await window.firebaseAddDoc(
                         window.firebaseCollection(window.firebaseDb, 'resources'),
                         {
@@ -683,4 +669,3 @@
     </script>
 </body>
 </html>
-
