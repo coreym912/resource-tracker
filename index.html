@@ -217,63 +217,45 @@
                 }
             };
 
-        const analyzeImage = async (imageFile) => {
-    setAnalyzing(true);
+      		const analyzeImage = async (imageFile) => {
+    			setAnalyzing(true);
     
-    try {
-        const reader = new FileReader();
-        reader.readAsDataURL(imageFile);
-        reader.onloadend = async () => {
+    		try {
+        	const reader = new FileReader();
+        		reader.readAsDataURL(imageFile);
+        		reader.onloadend = async () => {
             const base64Image = reader.result;
             
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            // Call YOUR Netlify function (not OpenAI directly)
+            const response = await fetch('/.netlify/functions/analyze-image', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "gpt-4o",
-                    messages: [{
-                        role: "user",
-                        content: [
-                            {
-                                type: "text",
-                                text: "Analyze this resource image and extract the following as JSON with these exact keys: resourceType (string: equipment type), description (string: detailed description), condition (string: must be Excellent, Good, Fair, or Poor), quantity (string: number visible), serialNumber (string: any visible serial/model number or empty string), notes (string: any observations). Return ONLY valid JSON, no other text."
-                            },
-                            {
-                                type: "image_url",
-                                image_url: { url: base64Image }
-                            }
-                        ]
-                    }],
-                    max_tokens: 500
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Image })
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const data = await response.json();
             
             if (data.error) {
-                console.error('OpenAI Error:', data.error);
-                alert('AI analysis failed: ' + data.error.message);
-                setAnalyzing(false);
-                return;
+                throw new Error(data.error.message || 'AI analysis failed');
             }
             
             const content = data.choices[0].message.content;
-            // Remove markdown code blocks if present
             const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             const analysis = JSON.parse(jsonStr);
             
             setFormData(analysis);
             setAnalyzing(false);
         };
-    } catch (error) {
-        console.error('AI Analysis Error:', error);
-        alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
-        setAnalyzing(false);
-    }
-};
+    		} catch (error) {
+		        console.error('AI Analysis Error:', error);
+		        alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
+		        setAnalyzing(false);
+		    }
+		};
 
             const handleSubmit = async () => {
                 if (!formData.resourceType || !formData.description) {
@@ -596,5 +578,6 @@
     </script>
 </body>
 </html>
+
 
 
