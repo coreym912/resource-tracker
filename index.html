@@ -169,6 +169,9 @@
                     console.log('Camera access granted');
                     setStream(mediaStream);
                     
+                    // Set camera active IMMEDIATELY after getting stream
+                    setCameraActive(true);
+                    
                     if (videoRef.current) {
                         videoRef.current.srcObject = mediaStream;
                         
@@ -179,7 +182,6 @@
                             videoRef.current.play()
                                 .then(() => {
                                     console.log('Video playing');
-                                    setCameraActive(true);
                                 })
                                 .catch(err => {
                                     console.error('Play error:', err);
@@ -188,7 +190,6 @@
                                         videoRef.current.play()
                                             .then(() => {
                                                 console.log('Video playing on retry');
-                                                setCameraActive(true);
                                             })
                                             .catch(e => {
                                                 alert('Failed to start video: ' + e.message);
@@ -669,4 +670,3 @@
     </script>
 </body>
 </html>
-
