@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Camera Debug</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+        h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 5px 0;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #startBtn {
+            background: #4CAF50;
+            color: white;
+        }
+        #captureBtn {
+            background: #2196F3;
+            color: white;
+        }
+        #stopBtn {
+            background: #f44336;
+            color: white;
+        }
+        button:disabled {
+            background: #ccc;
+            color: #666;
+        }
+        video {
+            width: 100%;
+            max-width: 100%;
+            background: black;
+            border: 2px solid #333;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        canvas {
+            width: 100%;
+            max-width: 100%;
+            border: 2px solid #333;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        #log {
+            background: white;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <h1>📱 Mobile Camera Debug</h1>
+    
+    <button id="startBtn">🎥 Start Camera</button>
+    <button id="captureBtn" disabled>📸 Capture Photo</button>
+    <button id="stopBtn" disabled>🛑 Stop Camera</button>
+    
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    
+    <div id="log"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const log = document.getElementById('log');
+        const startBtn = document.getElementById('startBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        let stream = null;
+
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            log.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        // Log device info
+        addLog('📱 User Agent: ' + navigator.userAgent);
+        addLog('🌐 HTTPS: ' + (location.protocol === 'https:' ? 'YES ✓' : 'NO ✗'));
+        addLog('📷 getUserMedia: ' + (navigator.mediaDevices?.getUserMedia ? 'YES ✓' : 'NO ✗'));
+        
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        addLog('📱 Mobile device: ' + (isMobile ? 'YES' : 'NO'));
+
+        startBtn.onclick = async () => {
+            try {
+                addLog('🔄 Requesting camera access...');
+                
+                // Mobile-optimized constraints
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                
+                addLog('📋 Constraints: ' + JSON.stringify(constraints.video));
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                addLog('✓ Camera access GRANTED', 'success');
+                addLog('📹 Video tracks: ' + stream.getVideoTracks().length);
+                
+                const track = stream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                addLog('⚙️ Camera settings: ' + JSON.stringify(settings));
+                
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    addLog('✓ Video metadata loaded', 'success');
+                    addLog('📐 Video size: ' + video.videoWidth + 'x' + video.videoHeight);
+                    
+                    video.play()
+                        .then(() => {
+                            addLog('✓ Video PLAYING', 'success');
+                            startBtn.disabled = true;
+                            captureBtn.disabled = false;
+                            stopBtn.disabled = false;
+                        })
+                        .catch(err => {
+                            addLog('✗ Play error: ' + err.message, 'error');
+                            
+                            // Try again after interaction
+                            addLog('🔄 Trying play again in 500ms...');
+                            setTimeout(() => {
+                                video.play()
+                                    .then(() => {
+                                        addLog('✓ Play SUCCESS on retry', 'success');
+                                        startBtn.disabled = true;
+                                        captureBtn.disabled = false;
+                                        stopBtn.disabled = false;
+                                    })
+                                    .catch(e => addLog('✗ Play FAILED again: ' + e.message, 'error'));
+                            }, 500);
+                        });
+                };
+                
+                video.onerror = (e) => {
+                    addLog('✗ Video element error: ' + e.message, 'error');
+                };
+                
+            } catch (error) {
+                addLog('✗ Camera ERROR: ' + error.name, 'error');
+                addLog('✗ Message: ' + error.message, 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    addLog('❌ Camera permission DENIED by user', 'error');
+                } else if (error.name === 'NotFoundError') {
+                    addLog('❌ No camera found on device', 'error');
+                } else if (error.name === 'NotReadableError') {
+                    addLog('❌ Camera in use by another app', 'error');
+                }
+            }
+        };
+
+        captureBtn.onclick = () => {
+            try {
+                addLog('📸 Attempting capture...');
+                
+                if (!video.videoWidth || !video.videoHeight) {
+                    addLog('⚠️ Video dimensions are 0, waiting...', 'error');
+                    setTimeout(() => {
+                        addLog('🔄 Retrying capture...');
+                        captureBtn.onclick();
+                    }, 500);
+                    return;
+                }
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                addLog('📐 Canvas size: ' + canvas.width + 'x' + canvas.height);
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                addLog('✓ Image drawn to canvas', 'success');
+                
+                // Test if canvas has data
+                const imageData = ctx.getImageData(0, 0, 10, 10);
+                const hasData = imageData.data.some(pixel => pixel !== 0);
+                addLog('🎨 Canvas has pixel data: ' + (hasData ? 'YES ✓' : 'NO ✗'));
+                
+                // Try creating dataURL
+                try {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                    addLog('✓ DataURL created: ' + dataUrl.length + ' chars', 'success');
+                    
+                    if (dataUrl.length > 1000) {
+                        addLog('✓✓✓ CAPTURE SUCCESSFUL! ✓✓✓', 'success');
+                    }
+                } catch (e) {
+                    addLog('✗ DataURL creation failed: ' + e.message, 'error');
+                }
+                
+            } catch (error) {
+                addLog('✗ Capture error: ' + error.message, 'error');
+            }
+        };
+
+        stopBtn.onclick = () => {
+            if (stream) {
+                stream.getTracks().forEach(track => {
+                    addLog('🛑 Stopping track: ' + track.label);
+                    track.stop();
+                });
+                video.srcObject = null;
+                addLog('✓ Camera stopped', 'success');
+                startBtn.disabled = false;
+                captureBtn.disabled = true;
+                stopBtn.disabled = true;
+            }
+        };
+    </script>
+</body>
+</html>
