@@ -147,27 +147,20 @@
             }, []);
 
             const startCamera = async () => {
-				try {
-					const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-						video: { 
-							facingMode: 'environment',
-							width: { ideal: 1920 },
-							height: { ideal: 1080 }
-						},
-						audio: false 
-					});
-					setStream(mediaStream);
-					if (videoRef.current) {
-						videoRef.current.srcObject = mediaStream;
-						// Wait for video to be ready
-						videoRef.current.onloadedmetadata = () => {
-							videoRef.current.play();
-						};
-					}
-					setCameraActive(true);
-				} catch (error) {
-					alert('Unable to access camera: ' + error.message);
-				}
+    			try {
+        			const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+           				 video: { facingMode: 'environment' },
+           				 audio: false 
+        			});
+        			setStream(mediaStream);
+        			if (videoRef.current) {
+            			videoRef.current.srcObject = mediaStream;
+            			videoRef.current.play().catch(e => console.log('Play error:', e));
+        			}
+        			setCameraActive(true);
+    			} catch (error) {
+        			alert('Unable to access camera: ' + error.message);
+    			}
 			};
 
             const stopCamera = () => {
@@ -178,33 +171,37 @@
                 setCameraActive(false);
             };
 
-            const capturePhoto = () => {
-				if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-					const canvas = document.createElement('canvas');
-					const video = videoRef.current;
-        
-					// Set canvas size to match video dimensions
-					canvas.width = video.videoWidth || video.clientWidth;
-					canvas.height = video.videoHeight || video.clientHeight;
-        
-					const ctx = canvas.getContext('2d');
-					ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-					// Convert to blob with explicit type
-					canvas.toBlob((blob) => {
-						if (blob) {
-						setImage(blob);
-						const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
-						setImagePreview(imageUrl);
-						stopCamera();
-						analyzeImage(blob);
-					} else {
-						alert('Failed to capture photo. Please try again.');
-					}
-				}, 'image/jpeg', 0.95);
-			} else {
-				alert('Video not ready. Please wait a moment and try again.');
-			}
+           const capturePhoto = () => {
+    		const video = videoRef.current;
+    
+    		if (!video) {
+       		 alert('Camera not available. Please try again.');
+       		 return;
+		 }
+    
+   			 const canvas = document.createElement('canvas');
+    
+   			 // Use video dimensions, fallback to client dimensions
+    		canvas.width = video.videoWidth || video.clientWidth || 640;
+    		canvas.height = video.videoHeight || video.clientHeight || 480;
+    
+    		// If dimensions are still 0, set defaults
+   			 if (canvas.width === 0) canvas.width = 640;
+   			 if (canvas.height === 0) canvas.height = 480;
+    
+   			 const ctx = canvas.getContext('2d');
+   			 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    		canvas.toBlob((blob) => {
+        		if (blob) {
+          		  setImage(blob);
+          		  setImagePreview(canvas.toDataURL('image/jpeg'));
+          		  stopCamera();
+           		 analyzeImage(blob);
+       		 } else {
+           		 alert('Failed to capture photo. Please try again.');
+       		 }
+    		}, 'image/jpeg', 0.95);
 		};
 
             const handleFileUpload = (e) => {
@@ -429,12 +426,13 @@
 
                                 {cameraActive && (
                                     <div className="space-y-4">
-                                        <video
-                                            ref={videoRef}
-                                            autoPlay
-                                            playsInline
-                                            className="w-full rounded-lg bg-black"
-                                        />
+                                       <video
+    									ref={videoRef}
+										autoPlay
+										playsInline
+										muted
+										className="w-full rounded-lg bg-black"
+									/>
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={capturePhoto}
@@ -598,3 +596,4 @@
     </script>
 </body>
 </html>
+
