@@ -298,13 +298,13 @@
             const analyzeImage = async (imageFile) => {
                 setAnalyzing(true);
                 
-                // OPTION 1: Call Netlify Function (recommended - secure)
-                /*
                 try {
                     const reader = new FileReader();
                     reader.readAsDataURL(imageFile);
                     reader.onloadend = async () => {
                         const base64Image = reader.result;
+                        
+                        console.log('Calling Netlify function for AI analysis...');
                         
                         const response = await fetch('/.netlify/functions/analyze-image', {
                             method: 'POST',
@@ -322,9 +322,16 @@
                             throw new Error(data.error.message || 'AI analysis failed');
                         }
                         
+                        console.log('AI response received');
+                        
                         const content = data.choices[0].message.content;
+                        
+                        // Remove markdown code blocks if present
                         const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                        
                         const analysis = JSON.parse(jsonStr);
+                        
+                        console.log('Parsed analysis:', analysis);
                         
                         setFormData(analysis);
                         setAnalyzing(false);
@@ -332,22 +339,18 @@
                 } catch (error) {
                     console.error('AI Analysis Error:', error);
                     alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
+                    
+                    // Set default values so user can still fill out form
+                    setFormData({
+                        resourceType: 'Equipment',
+                        description: 'Please describe this resource',
+                        condition: 'Good',
+                        quantity: '1',
+                        serialNumber: '',
+                        notes: 'AI analysis failed - please update manually'
+                    });
                     setAnalyzing(false);
                 }
-                */
-
-                // OPTION 2: Simulated analysis (currently active)
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                const simulatedAnalysis = {
-                    resourceType: 'Equipment',
-                    description: 'Resource captured - please review and edit details',
-                    condition: 'Good',
-                    quantity: '1',
-                    serialNumber: '',
-                    notes: 'Photo uploaded successfully. Please verify and update the information above.'
-                };
-                setFormData(simulatedAnalysis);
-                setAnalyzing(false);
             };
 
             const handleSubmit = async () => {
