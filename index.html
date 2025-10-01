@@ -146,22 +146,100 @@
                 };
             }, []);
 
-            const startCamera = async () => {
-    			try {
-        		const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-           			 video: { facingMode: 'environment' },
-            		audio: false 
-       		 });
-        			setStream(mediaStream);
-        		if (videoRef.current) {
-            		videoRef.current.srcObject = mediaStream;
-           			 videoRef.current.play().catch(e => console.log('Play error:', e));
-        		}
-        			setCameraActive(true);
-    			} catch (error) {
-       				 alert('Unable to access camera: ' + error.message);
-			}
-		};;
+            // Replace your startCamera function with this:
+const startCamera = async () => {
+    try {
+        const constraints = {
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        setStream(mediaStream);
+        
+        if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+            
+            // Wait for the video to be ready
+            await new Promise((resolve) => {
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current.play()
+                        .then(() => {
+                            console.log('Video playing successfully');
+                            resolve();
+                        })
+                        .catch(err => {
+                            console.error('Play error:', err);
+                            resolve(); // Resolve anyway to continue
+                        });
+                };
+            });
+        }
+        
+        setCameraActive(true);
+    } catch (error) {
+        console.error('Camera error:', error);
+        alert('Unable to access camera: ' + error.message);
+    }
+};
+
+	// Replace your capturePhoto function with this:
+	const capturePhoto = () => {
+    	const video = videoRef.current;
+    
+    	if (!video || !stream) {
+        	alert('Camera not available');
+        return;
+    }
+
+    		console.log('Attempting capture...');
+   		 	console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+    
+    	const canvas = document.createElement('canvas');
+    
+    	// Set canvas dimensions
+    	const width = video.videoWidth || video.offsetWidth || 640;
+    	const height = video.videoHeight || video.offsetHeight || 480;
+    
+    		console.log('Canvas dimensions:', width, 'x', height);
+    
+		    canvas.width = width;
+		    canvas.height = height;
+    
+    	const ctx = canvas.getContext('2d');
+    
+		try {
+			// Draw the current video frame to canvas
+			ctx.drawImage(video, 0, 0, width, height);
+        
+        // Convert canvas to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        console.log('DataURL created, length:', dataUrl.length);
+        
+        // Convert to blob
+        canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+                console.log('Blob created, size:', blob.size);
+                setImage(blob);
+                setImagePreview(dataUrl);
+                stopCamera();
+                analyzeImage(blob);
+            } else {
+                console.error('Blob creation failed');
+                alert('Failed to capture photo. Please try again.');
+            }
+        }, 'image/jpeg', 0.95);
+        
+    } catch (error) {
+        console.error('Capture error:', error);
+        alert('Error capturing photo: ' + error.message);
+    }
+};
 
             const stopCamera = () => {
                 if (stream) {
@@ -578,6 +656,7 @@
     </script>
 </body>
 </html>
+
 
 
 
