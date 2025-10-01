@@ -146,100 +146,46 @@
                 };
             }, []);
 
-            // Replace your startCamera function with this:
-const startCamera = async () => {
-    try {
-        const constraints = {
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        };
+            const startCamera = async () => {
+                try {
+                    const constraints = {
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: false
+                    };
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        setStream(mediaStream);
-        
-        if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            
-            // Wait for the video to be ready
-            await new Promise((resolve) => {
-                videoRef.current.onloadedmetadata = () => {
-                    videoRef.current.play()
-                        .then(() => {
-                            console.log('Video playing successfully');
-                            resolve();
-                        })
-                        .catch(err => {
-                            console.error('Play error:', err);
-                            resolve(); // Resolve anyway to continue
+                    const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    setStream(mediaStream);
+                    
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = mediaStream;
+                        
+                        // Wait for the video to be ready
+                        await new Promise((resolve) => {
+                            videoRef.current.onloadedmetadata = () => {
+                                videoRef.current.play()
+                                    .then(() => {
+                                        console.log('Video playing successfully');
+                                        resolve();
+                                    })
+                                    .catch(err => {
+                                        console.error('Play error:', err);
+                                        resolve(); // Resolve anyway to continue
+                                    });
+                            };
                         });
-                };
-            });
-        }
-        
-        setCameraActive(true);
-    } catch (error) {
-        console.error('Camera error:', error);
-        alert('Unable to access camera: ' + error.message);
-    }
-};
-
-	// Replace your capturePhoto function with this:
-	const capturePhoto = () => {
-    	const video = videoRef.current;
-    
-    	if (!video || !stream) {
-        	alert('Camera not available');
-        return;
-    }
-
-    		console.log('Attempting capture...');
-   		 	console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-    
-    	const canvas = document.createElement('canvas');
-    
-    	// Set canvas dimensions
-    	const width = video.videoWidth || video.offsetWidth || 640;
-    	const height = video.videoHeight || video.offsetHeight || 480;
-    
-    		console.log('Canvas dimensions:', width, 'x', height);
-    
-		    canvas.width = width;
-		    canvas.height = height;
-    
-    	const ctx = canvas.getContext('2d');
-    
-		try {
-			// Draw the current video frame to canvas
-			ctx.drawImage(video, 0, 0, width, height);
-        
-        // Convert canvas to data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        console.log('DataURL created, length:', dataUrl.length);
-        
-        // Convert to blob
-        canvas.toBlob((blob) => {
-            if (blob && blob.size > 0) {
-                console.log('Blob created, size:', blob.size);
-                setImage(blob);
-                setImagePreview(dataUrl);
-                stopCamera();
-                analyzeImage(blob);
-            } else {
-                console.error('Blob creation failed');
-                alert('Failed to capture photo. Please try again.');
-            }
-        }, 'image/jpeg', 0.95);
-        
-    } catch (error) {
-        console.error('Capture error:', error);
-        alert('Error capturing photo: ' + error.message);
-    }
-};
+                    }
+                    
+                    setCameraActive(true);
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    alert('Unable to access camera: ' + error.message);
+                }
+            };
 
             const stopCamera = () => {
                 if (stream) {
@@ -249,38 +195,57 @@ const startCamera = async () => {
                 setCameraActive(false);
             };
 
-           const capturePhoto = () => {
-    		const video = videoRef.current;
-    
-    		if (!video) {
-        		alert('Camera not available. Please try again.');
-        	return;
-		}
-    
-    		const canvas = document.createElement('canvas');
-    
-			    // Use video dimensions, fallback to client dimensions
-			    canvas.width = video.videoWidth || video.clientWidth || 640;
-			    canvas.height = video.videoHeight || video.clientHeight || 480;
-    
-		    // If dimensions are still 0, set defaults
-		    if (canvas.width === 0) canvas.width = 640;
-		    if (canvas.height === 0) canvas.height = 480;
-    
-    		const ctx = canvas.getContext('2d');
-    			ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    			canvas.toBlob((blob) => {
-        	if (blob) {
-           		 setImage(blob);
-           		 setImagePreview(canvas.toDataURL('image/jpeg'));
-            	stopCamera();
-            	analyzeImage(blob);
-        	} else {
-            	alert('Failed to capture photo. Please try again.');
-       	 }
-    	}, 'image/jpeg', 0.95);
-	};
+            const capturePhoto = () => {
+                const video = videoRef.current;
+                
+                if (!video || !stream) {
+                    alert('Camera not available');
+                    return;
+                }
+
+                console.log('Attempting capture...');
+                console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                
+                const canvas = document.createElement('canvas');
+                
+                // Set canvas dimensions
+                const width = video.videoWidth || video.offsetWidth || 640;
+                const height = video.videoHeight || video.offsetHeight || 480;
+                
+                console.log('Canvas dimensions:', width, 'x', height);
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                
+                try {
+                    // Draw the current video frame to canvas
+                    ctx.drawImage(video, 0, 0, width, height);
+                    
+                    // Convert canvas to data URL
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                    console.log('DataURL created, length:', dataUrl.length);
+                    
+                    // Convert to blob
+                    canvas.toBlob((blob) => {
+                        if (blob && blob.size > 0) {
+                            console.log('Blob created, size:', blob.size);
+                            setImage(blob);
+                            setImagePreview(dataUrl);
+                            stopCamera();
+                            analyzeImage(blob);
+                        } else {
+                            console.error('Blob creation failed');
+                            alert('Failed to capture photo. Please try again.');
+                        }
+                    }, 'image/jpeg', 0.95);
+                    
+                } catch (error) {
+                    console.error('Capture error:', error);
+                    alert('Error capturing photo: ' + error.message);
+                }
+            };
 
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
@@ -295,45 +260,61 @@ const startCamera = async () => {
                 }
             };
 
-      		const analyzeImage = async (imageFile) => {
-    			setAnalyzing(true);
-    
-    		try {
-        	const reader = new FileReader();
-        		reader.readAsDataURL(imageFile);
-        		reader.onloadend = async () => {
-            const base64Image = reader.result;
-            
-            // Call YOUR Netlify function (not OpenAI directly)
-            const response = await fetch('/.netlify/functions/analyze-image', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64Image })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error.message || 'AI analysis failed');
-            }
-            
-            const content = data.choices[0].message.content;
-            const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            const analysis = JSON.parse(jsonStr);
-            
-            setFormData(analysis);
-            setAnalyzing(false);
-        };
-    		} catch (error) {
-		        console.error('AI Analysis Error:', error);
-		        alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
-		        setAnalyzing(false);
-		    }
-		};
+            const analyzeImage = async (imageFile) => {
+                setAnalyzing(true);
+                
+                // OPTION 1: Call Netlify Function (recommended - secure)
+                /*
+                try {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(imageFile);
+                    reader.onloadend = async () => {
+                        const base64Image = reader.result;
+                        
+                        // Call YOUR Netlify function (not OpenAI directly)
+                        const response = await fetch('/.netlify/functions/analyze-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ image: base64Image })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            throw new Error(data.error.message || 'AI analysis failed');
+                        }
+                        
+                        const content = data.choices[0].message.content;
+                        const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                        const analysis = JSON.parse(jsonStr);
+                        
+                        setFormData(analysis);
+                        setAnalyzing(false);
+                    };
+                } catch (error) {
+                    console.error('AI Analysis Error:', error);
+                    alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
+                    setAnalyzing(false);
+                }
+                */
+
+                // OPTION 2: Simulated analysis (currently active)
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const simulatedAnalysis = {
+                    resourceType: 'Equipment',
+                    description: 'Resource captured - please review and edit details',
+                    condition: 'Good',
+                    quantity: '1',
+                    serialNumber: '',
+                    notes: 'Photo uploaded successfully. Please verify and update the information above.'
+                };
+                setFormData(simulatedAnalysis);
+                setAnalyzing(false);
+            };
 
             const handleSubmit = async () => {
                 if (!formData.resourceType || !formData.description) {
@@ -486,14 +467,14 @@ const startCamera = async () => {
 
                                 {cameraActive && (
                                     <div className="space-y-4">
-                                       <video
-    									ref={videoRef}
-    									autoPlay
-    									playsInline
-    									muted
-    									className="w-full rounded-lg bg-black"
-										style={{ minHeight: '300px' }}
-									/>
+                                        <video
+                                            ref={videoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full rounded-lg bg-black"
+                                            style={{ minHeight: '300px' }}
+                                        />
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={capturePhoto}
@@ -537,7 +518,7 @@ const startCamera = async () => {
                             {imagePreview && !analyzing && (
                                 <div className="p-6 pt-0 space-y-4">
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                        <p className="text-sm text-blue-800 font-semibold mb-1">AI Analysis Complete</p>
+                                        <p className="text-sm text-blue-800 font-semibold mb-1">Image Captured</p>
                                         <p className="text-xs text-blue-600">Review and edit the information below before submitting.</p>
                                     </div>
 
@@ -646,7 +627,7 @@ const startCamera = async () => {
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-600">
-                            <p>📍 Location captured automatically • 🤖 AI-powered image analysis • 📱 Mobile optimized • ☁️ Firebase backend</p>
+                            <p>📍 Location captured automatically • 📱 Mobile optimized • ☁️ Firebase backend</p>
                         </div>
                     </div>
                 </div>
@@ -657,8 +638,3 @@ const startCamera = async () => {
     </script>
 </body>
 </html>
-
-
-
-
-
