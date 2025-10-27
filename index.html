@@ -3,8 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Resource Tracker</title>
+    <title>Rapid Response Systems - Resource Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Rapid Response Systems Branding -->
+    <style>
+        :root {
+            --rrs-primary: #1E1E1E;
+            --rrs-secondary: #D0D0D0;
+            --rrs-white: #FFFFFF;
+        }
+        .rrs-gradient {
+            background: linear-gradient(135deg, #1E1E1E 0%, #3a3a3a 100%);
+        }
+        .rrs-bg-dark {
+            background-color: #1E1E1E;
+        }
+        .rrs-bg-light {
+            background-color: #D0D0D0;
+        }
+        .rrs-text-dark {
+            color: #1E1E1E;
+        }
+        .rrs-border-light {
+            border-color: #D0D0D0;
+        }
+    </style>
     
     <!-- Firebase SDK -->
     <script type="module">
@@ -14,12 +38,12 @@
 
         // TODO: Replace with your Firebase config
         const firebaseConfig = {
-            apiKey: "AIzaSyAw4pZk2up_7IG4e9ZfJJC_gMG4YGfEDQc",
-			authDomain: "resource-tracking-test-app.firebaseapp.com",
-			projectId: "resource-tracking-test-app",
-			storageBucket: "resource-tracking-test-app.firebasestorage.app",
-			messagingSenderId: "906802546479",
-			appId: "1:906802546479:web:f52c69e60e515ffe5803da"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -107,6 +131,8 @@
             const [analyzing, setAnalyzing] = useState(false);
             const [saving, setSaving] = useState(false);
             const [formData, setFormData] = useState({
+                project: '',
+                initials: '',
                 resourceType: '',
                 description: '',
                 condition: '',
@@ -114,6 +140,19 @@
                 serialNumber: '',
                 notes: ''
             });
+            
+            // Load cached Project and Initials on mount
+            useEffect(() => {
+                const cachedProject = localStorage.getItem('rrs_project');
+                const cachedInitials = localStorage.getItem('rrs_initials');
+                if (cachedProject || cachedInitials) {
+                    setFormData(prev => ({
+                        ...prev,
+                        project: cachedProject || '',
+                        initials: cachedInitials || ''
+                    }));
+                }
+            }, []);
             const [submitted, setSubmitted] = useState(false);
             
             const fileInputRef = useRef(null);
@@ -305,40 +344,64 @@
                         const base64Image = reader.result;
                         
                         console.log('Calling Netlify function for AI analysis...');
+                        console.log('Image size:', base64Image.length, 'characters');
                         
-                        const response = await fetch('/.netlify/functions/analyze-image', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ image: base64Image })
-                        });
+                        // Add timeout to the request (30 seconds)
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 30000);
                         
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
+                        try {
+                            const response = await fetch('/.netlify/functions/analyze-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ image: base64Image }),
+                                signal: controller.signal
+                            });
+                            
+                            clearTimeout(timeoutId);
+                            
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Response error:', errorText);
+                                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            if (data.error) {
+                                throw new Error(data.error.message || data.error || 'AI analysis failed');
+                            }
+                            
+                            console.log('AI response received:', data);
+                            
+                            const content = data.choices[0].message.content;
+                            
+                            // Remove markdown code blocks if present
+                            const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                            
+                            console.log('Parsing JSON:', jsonStr);
+                            
+                            const analysis = JSON.parse(jsonStr);
+                            
+                            console.log('Parsed analysis:', analysis);
+                            
+                            setFormData(analysis);
+                            setAnalyzing(false);
+                            
+                        } catch (fetchError) {
+                            clearTimeout(timeoutId);
+                            
+                            if (fetchError.name === 'AbortError') {
+                                throw new Error('Request timed out. Please try again.');
+                            }
+                            throw fetchError;
                         }
-                        
-                        const data = await response.json();
-                        
-                        if (data.error) {
-                            throw new Error(data.error.message || 'AI analysis failed');
-                        }
-                        
-                        console.log('AI response received');
-                        
-                        const content = data.choices[0].message.content;
-                        
-                        // Remove markdown code blocks if present
-                        const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                        
-                        const analysis = JSON.parse(jsonStr);
-                        
-                        console.log('Parsed analysis:', analysis);
-                        
-                        setFormData(analysis);
-                        setAnalyzing(false);
                     };
                 } catch (error) {
                     console.error('AI Analysis Error:', error);
-                    alert('AI analysis failed. Please fill in the form manually. Error: ' + error.message);
+                    alert('AI analysis failed: ' + error.message + '\n\nPlease fill in the form manually.');
                     
                     // Set default values so user can still fill out form
                     setFormData({
@@ -354,10 +417,14 @@
             };
 
             const handleSubmit = async () => {
-                if (!formData.resourceType || !formData.description) {
-                    alert('Please fill in required fields: Resource Type and Description');
+                if (!formData.project || !formData.initials || !formData.resourceType || !formData.description) {
+                    alert('Please fill in required fields: Project, Initials, Resource Type, and Description');
                     return;
                 }
+                
+                // Cache Project and Initials for next time
+                localStorage.setItem('rrs_project', formData.project);
+                localStorage.setItem('rrs_initials', formData.initials);
 
                 setSaving(true);
 
@@ -395,7 +462,12 @@
             const resetForm = () => {
                 setImage(null);
                 setImagePreview(null);
+                // Keep Project and Initials cached
+                const cachedProject = localStorage.getItem('rrs_project') || '';
+                const cachedInitials = localStorage.getItem('rrs_initials') || '';
                 setFormData({
+                    project: cachedProject,
+                    initials: cachedInitials,
                     resourceType: '',
                     description: '',
                     condition: '',
@@ -410,25 +482,42 @@
 
             if (submitted) {
                 return (
-                    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+                    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center border-t-4 rrs-border-dark" style={{ borderTopColor: '#1E1E1E' }}>
                             <div className="flex justify-center mb-4">
                                 <CheckIcon />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Resource Tracked!</h2>
+                            <h2 className="text-2xl font-bold rrs-text-dark mb-2">Resource Tracked!</h2>
                             <p className="text-gray-600">Your resource has been successfully saved to Firebase with location data.</p>
+                            <div className="mt-4">
+                                <img 
+                                    src="https://drive.google.com/uc?export=view&id=1AVB1xPgB21vIDd55yUuxNBOoxMeKF0yO" 
+                                    alt="RRS Logo" 
+                                    className="h-8 w-auto mx-auto opacity-50"
+                                />
+                            </div>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
                     <div className="max-w-2xl mx-auto">
                         <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
-                                <h1 className="text-3xl font-bold mb-2">Resource Tracker</h1>
-                                <p className="text-blue-100">AI-powered resource tracking with GPS location</p>
+                            <div className="rrs-gradient p-6 text-white">
+                                <div className="flex items-center gap-4 mb-3">
+                                    <img 
+                                        src="https://drive.google.com/uc?export=view&id=1AVB1xPgB21vIDd55yUuxNBOoxMeKF0yO" 
+                                        alt="Rapid Response Systems Logo" 
+                                        className="h-16 w-auto bg-white rounded-lg p-2"
+                                    />
+                                    <div>
+                                        <h1 className="text-2xl font-bold">Rapid Response Systems</h1>
+                                        <p className="text-sm opacity-90">Resource Tracker</p>
+                                    </div>
+                                </div>
+                                <p className="text-white text-sm opacity-90">AI-powered resource tracking with GPS location</p>
                             </div>
 
                             <div className="p-6 bg-gray-50 border-b">
@@ -468,7 +557,7 @@
                                     <div className="space-y-4">
                                         <button
                                             onClick={startCamera}
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                                            className="w-full text-white font-semibold py-4 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors rrs-gradient hover:opacity-90"
                                         >
                                             <CameraIcon />
                                             Open Camera
@@ -513,7 +602,7 @@
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={capturePhoto}
-                                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                                                className="flex-1 text-white font-semibold py-3 px-6 rounded-lg transition-colors rrs-gradient hover:opacity-90"
                                             >
                                                 Capture Photo
                                             </button>
@@ -552,9 +641,40 @@
 
                             {imagePreview && !analyzing && (
                                 <div className="p-6 pt-0 space-y-4">
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                        <p className="text-sm text-blue-800 font-semibold mb-1">Image Captured</p>
-                                        <p className="text-xs text-blue-600">Review and edit the information below before submitting.</p>
+                                    <div className="rrs-bg-light rounded-lg p-4 mb-4">
+                                        <p className="text-sm rrs-text-dark font-semibold mb-1">Image Captured</p>
+                                        <p className="text-xs text-gray-700">Review and edit the information below before submitting.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Project *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.project}
+                                                onChange={(e) => setFormData({...formData, project: e.target.value})}
+                                                className="w-full px-4 py-2 border-2 rrs-border-light rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                                                placeholder="Project name"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Initials *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.initials}
+                                                onChange={(e) => setFormData({...formData, initials: e.target.value})}
+                                                className="w-full px-4 py-2 border-2 rrs-border-light rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
+                                                placeholder="Your initials"
+                                                maxLength="5"
+                                            />
+                                        </div>
                                     </div>
 
                                     <div>
@@ -646,7 +766,7 @@
                                     <button
                                         onClick={handleSubmit}
                                         disabled={saving}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rrs-gradient"
                                     >
                                         {saving ? (
                                             <span className="flex items-center justify-center gap-2">
@@ -662,7 +782,15 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-600">
-                            <p>📍 Location captured automatically • 📱 Mobile optimized • ☁️ Firebase backend</p>
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <img 
+                                    src="https://drive.google.com/uc?export=view&id=1AVB1xPgB21vIDd55yUuxNBOoxMeKF0yO" 
+                                    alt="RRS" 
+                                    className="h-6 w-auto"
+                                />
+                                <span className="font-semibold rrs-text-dark">Rapid Response Systems</span>
+                            </div>
+                            <p>📍 Location tracking • 🤖 AI analysis • ☁️ Cloud sync</p>
                         </div>
                     </div>
                 </div>
